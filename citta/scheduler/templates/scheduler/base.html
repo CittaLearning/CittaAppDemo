@@ -1,0 +1,24 @@
+{% load staticfiles %}
+<html>
+<head>
+	<!-- jQuery -->
+	<script src="{% static 'bootstrap/js/jquery.js' %}"></script>
+
+	<!-- Bootstrap Core JavaScript -->
+	<script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+	<link rel="stylesheet" href="{% static 'bootstrap/css/custom.css' %}">
+	<link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
+	<link rel="stylesheet" href="{% static 'bootstrap/css/simple-sidebar.css' %}">
+	<ul class="nav nav-tabs">
+		<li class="active"><a href="#">Home</a></li>
+		<li><a href="#">Calendar</a></li>
+		<li><a href="#">Today</a></li>
+		<li><a href="#">Tasks</a></li>
+	</ul>
+
+</head>
+<body>
+	{% block content %}
+	{% endblock %}
+</body>
+</html>

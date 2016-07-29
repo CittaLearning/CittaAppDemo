@@ -1,0 +1,115 @@
+{% load staticfiles %}
+<html>
+<head>
+
+	<!-- Custom -->
+	<link rel="stylesheet" href="{% static 'bootstrap/css/custom.css' %}">
+
+	<!-- jQuery -->
+	<script src="{% static 'bootstrap/js/jquery.js' %}"></script>
+
+	<!-- Bootstrap Core JavaScript -->
+	<script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+	<link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
+
+	<!-- FullCalendar -->
+	<link rel='stylesheet' href="{% static 'fullcalendar/fullcalendar.css' %}"/>
+	<script src="{% static 'fullcalendar/lib/jquery.min.js' %}"></script>
+	<script src="{% static 'fullcalendar/lib/moment.min.js' %}"></script>
+	<script src="{% static 'fullcalendar/fullcalendar.js' %}"></script>
+
+	<script>
+	$(document).ready(function() {
+
+    // page is now ready, initialize the calendar...
+
+    $('#fullCalendar').fullCalendar({
+        // put your options and callbacks here
+        header: {
+        	left: 'prev,next today',
+        	center: 'title',
+        	right: 'month,basicWeek,basicDay'
+        },
+
+        eventSources: [
+
+        // your event source
+        {
+            url: '/scheduler/tasksFeed/', // use the `url` property
+            color: 'yellow',    // an option!
+            textColor: 'black'  // an option!
+        }
+
+        // any other sources...
+
+        ]
+    });
+
+});
+	</script>
+
+</head>
+<body>
+	{% block content %}
+
+	<ul class="nav nav-tabs">
+		<li class="active"><a data-toggle="tab" href="#home">Home</a></li>
+		<li><a data-toggle="tab" href="#calendar">Calendar</a></li>
+		<li><a data-toggle="tab" href="#tasks">Tasks</a></li>
+	</ul>
+	<div class="tab-content">
+		<div id="home" class="tab-pane fade in active">
+			<h3>HOME</h3>
+			<div class="container">
+				<div class="table-responsive">
+					<table class="table table-hover table-bordered table-striped">
+						<tr>
+							<th>Previous Task</th>
+							<td>{{prev}}</td>
+						</tr>
+						<tr>
+							<th>Current Task</th>
+							<td>{{current}}</td>
+						</tr>
+						<tr>
+							<th>Next Task</th>
+							<td>{{next}}</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+		</div>
+		<div id="calendar" class="tab-pane fade ">
+			<h3>CALENDAR</h3>
+			<div id="fullCalendar"></div>
+		</div>
+		<div id="tasks" class="tab-pane fade ">
+			<h3>TASKS</h3>
+			<div class="container">
+				<div class="table-responsive">
+					<table class="table table-hover table-bordered table-striped">
+						<tr>
+							<th>Subject</th>
+							<th>Content</th>
+							<th>Category</th>
+							<th>Due Date</th>
+							<th>Total Time</th>
+							<th>Attention Span</th>
+						</tr>
+						{% for task in tasks %}
+						<tr>
+							{% for info in task %}
+							<td>{{info}}</td>
+							{% endfor %}
+						</tr>
+						{% endfor %}
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+	{% endblock %}
+</body>
+</html>
