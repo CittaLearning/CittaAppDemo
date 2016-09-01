@@ -1,23 +1,5 @@
-{% load staticfiles %}
-<html>
-<head>
-
-	<!-- Custom -->
-	<link rel="stylesheet" href="{% static 'bootstrap/css/custom.css' %}">
-
-	<!-- jQuery -->
-	<script src="{% static 'bootstrap/js/jquery.js' %}"></script>
-
-	<!-- Bootstrap Core JavaScript -->
-	<script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
-	<link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
-
-	<!-- FullCalendar -->
-	<link rel='stylesheet' href="{% static 'fullcalendar/fullcalendar.css' %}"/>
-	<script src="{% static 'fullcalendar/lib/jquery.min.js' %}"></script>
-	<script src="{% static 'fullcalendar/lib/moment.min.js' %}"></script>
-	<script src="{% static 'fullcalendar/fullcalendar.js' %}"></script>
-
+{% extends 'scheduler/base.html' %}
+{% block head %}
 	<script>
 	$(document).ready(function() {
 
@@ -47,9 +29,7 @@
 
 });
 	</script>
-
-</head>
-<body>
+	{% endblock %}
 	{% block content %}
 
 	<ul class="nav nav-tabs">
@@ -85,6 +65,7 @@
 		</div>
 		<div id="tasks" class="tab-pane fade ">
 			<h3>TASKS</h3>
+			<p><a href="{% url 'newtask' %}"">Add new task</a></p>
 			<div class="container">
 				<div class="table-responsive">
 					<table class="table table-hover table-bordered table-striped">
@@ -111,5 +92,3 @@
 
 
 	{% endblock %}
-</body>
-</html>

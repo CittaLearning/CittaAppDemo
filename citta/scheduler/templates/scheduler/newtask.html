@@ -1,0 +1,15 @@
+{% extends 'scheduler/base.html' %}
+{% block content %}
+
+	<h1>New Task</h1>
+
+	{% if form.errors %}
+	<p>Please fix the errors in your scenario</p>
+	{% endif %}
+	<form method="post" action="{% url 'newtask' %}">
+		{% csrf_token %}
+		{{ form }}
+		<input type="submit" value="Create Task" />
+	</form>
+
+{% endblock %}

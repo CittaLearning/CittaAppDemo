@@ -40,6 +40,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -77,14 +82,20 @@ WSGI_APPLICATION = 'citta.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.mysql',
-#        'HOST': '/cloudsql/citta-1386:basiccittainstance',
-#        'NAME': 'citta',
-#        'USER': 'root'
-#    }
-#}
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'HOST': '173.194.255.165',
+        'NAME': 'citta',
+        'USER': 'rishabh',
+        'PASSWORD': 'h2owsome'
+    }
+}
+
+AUTHENTICATION_BACKENDS = [
+	'allauth.account.auth_backends.AuthenticationBackend',
+	'django.contrib.auth.backends.ModelBackend',
+]
 
 
 # Password validation
@@ -119,8 +130,21 @@ USE_L10N = True
 
 USE_TZ = True
 
+GOOGLE_OAUTH2_CLIENT_ID = '863866533021-masikb4m0mp9of39ms0coimt7s2f8gq5.apps.googleusercontent.com'
+
+GOOGLE_OAUTH2_CLIENT_SECRET = 'xohjj095Fd-QvuVh4thwBmfY'
+
+SOCIAL_AUTH_COMPLETE_URL_NAME = 'socialauth_complete'
+
+SOCIAL_AUTH_ASSOCIATE_URL_NAME = 'socialauth_associate_complete'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
 
+SITE_ID = 2
+
 STATIC_URL = '/static/'
+
+LOGIN_URL = '/scheduler/login/'
+
+LOGIN_REDIRECT_URL = '/accounts/google/login/callback/'

@@ -1,6 +1,10 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.core.serializers.json import DjangoJSONEncoder
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from .models import UserInfo, Task
+from .forms import TaskForm
 import datetime
 import json
 
@@ -33,7 +37,7 @@ def task_compare(task1, task2):
 			- category_priority.index(task2[2]))
 	return days_remaining_1 - days_remaining_2
 
-def calendar_create(unsortedTasks):
+def calendar_create(unsortedTasks, request_user):
 	# Sort the tasks by priority
 	tasks=[]
 	for newtask in unsortedTasks:
@@ -46,33 +50,34 @@ def calendar_create(unsortedTasks):
 	########################
 	#PARSE PRELIMINARY INFO#
 	########################
+	user_info = UserInfo.objects.get(user__pk=request_user.pk)
 	current_date = datetime.date.today()
-	study_time = 5 #TODO: Input actual time amount, also I don't think this is used
-	study_period = (16, 20) #TODO: Input actual study period
-	study_days = (0,1,2,4,5) #TODO: Input actual study days
+	study_period = (user_info.study_start, user_info.study_end)
+	study_days = [day.index for day in user_info.study_days.all()]
 	#NOTE: date.weekday(), Monday is 0, Sunday is 6
-	break_time = datetime.timedelta(minutes=10) #TODO: Input actual break time
+	break_time = datetime.timedelta(minutes=user_info.break_time)
 
 	#################
 	#OUTPUT SCHEDULE#
 	#################
 	max_days = 0
 	# Get the time available in a day
-	day_time = datetime.timedelta(minutes=((study_period[1] - study_period[0]) * 60))
+	day_time = datetime.datetime.combine(datetime.date.today(), study_period[1]) - datetime.datetime.combine(datetime.date.today(), study_period[0])
 	# List of days with their respective activities
 	active_days_list = []
 	for task in tasks:
 		days_left = 0
 		days_left_date = current_date
-		# Go the first available day to study
+		# Find the first available day to study
 		while days_left_date.weekday() not in study_days:
 			days_left_date += datetime.timedelta(days=1)
-		days_left_date -= datetime.timedelta(days=1)
 		# Count the number of available days to study
 		while days_left_date < task[3]:
 			# Increase days_left_date to next date based on available study days
-			days_left_date += datetime.timedelta(days=((study_days[(days_left + 1) % len(study_days)]
-				- study_days[days_left % len(study_days)] + 7) % 7))
+			days_left_index = study_days.index(days_left_date.weekday())
+			next_day_index = (days_left_index + 1) % len(study_days)
+			date_difference = study_days[next_day_index] - study_days[days_left_index]
+			days_left_date += datetime.timedelta(days=(date_difference % 7))
 			days_left += 1
 		# Copy the task timedelta into time_left
 		time_left = +task[4]
@@ -99,8 +104,10 @@ def calendar_create(unsortedTasks):
 			elif day_index not in full_days:
 				full_days.append(day_index)
 			# Go to the next day and date
-			date_index += datetime.timedelta(days=((study_days[(days_left + 1) % len(study_days)]
-				- study_days[days_left % len(study_days)] + 7) % 7))
+			date_index_index = study_days.index(date_index.weekday())
+			next_day_index = (date_index_index + 1) % len(study_days)
+			date_difference = study_days[next_day_index] - study_days[date_index_index]
+			date_index += datetime.timedelta(days=(date_difference % 7))
 			day_index += 1
 			if date_index >= task[3]:
 				# Reset day and date index
@@ -130,7 +137,7 @@ def calendar_create(unsortedTasks):
 		date_index += datetime.timedelta(days=1)
 	for day in active_days_list:
 		# Start tracking time at beginning of study period
-		time_index = datetime.time(hour=study_period[0])
+		time_index = study_period[0]
 		for task in day:
 			# Get the full start time of the task from the current date and tiem
 			task_start = datetime.datetime.combine(date_index, time_index)
@@ -139,28 +146,31 @@ def calendar_create(unsortedTasks):
 			# Hack to add timedelta to time index
 			time_index = (datetime.datetime.combine(datetime.date.today(), time_index) + task[5] + break_time).time()
 		# Go to the next day and date
-		date_index += datetime.timedelta(days=((study_days[(days_left + 1) % len(study_days)]
-			- study_days[days_left % len(study_days)] + 7) % 7))
+		date_index_index = study_days.index(date_index.weekday())
+		next_day_index = (date_index_index + 1) % len(study_days)
+		date_difference = study_days[next_day_index] - study_days[date_index_index]
+		date_index += datetime.timedelta(days=(date_difference % 7))
 
 	# Return the list of individual task blocks
 	return task_blocks
 
-def getTasks():
+def getTasks(request_user):
+	tasks_from_sql = Task.objects.filter(user__pk=request_user.pk)
 	# Tasks are represented as ( Subject, Content, Category, Due Date, Total Time, Attention Span)
 	tasks = []
-	tasks.append(('English', 'Chapter 1', 'HW', datetime.date(2016, 8, 1), datetime.timedelta(hours=1), datetime.timedelta(minutes=20)))
-	tasks.append(('English', 'Chapter 2', 'HW', datetime.date(2016, 8, 2), datetime.timedelta(hours=1), datetime.timedelta(minutes=20)))
-	tasks.append(('Math', 'Chapter 1 Quiz', 'Test', datetime.date(2016, 8, 2), datetime.timedelta(hours=2), datetime.timedelta(minutes=30)))
-	tasks.append(('Physics', 'Chapter 3 Quiz', 'Test', datetime.date(2016, 8, 5), datetime.timedelta(hours=1.5), datetime.timedelta(minutes=30)))
-	tasks.append(('Dance', 'Practice Steps', 'HW', datetime.date(2016, 8, 5), datetime.timedelta(minutes=15), datetime.timedelta(minutes=15)))
-	tasks.append(('Singing', 'Practice Songs', 'HW', datetime.date(2016, 8, 4), datetime.timedelta(minutes=30), datetime.timedelta(minutes=15)))
-	tasks.append(('History', 'Oddessy', 'Test', datetime.date(2016, 8, 8), datetime.timedelta(minutes=30), datetime.timedelta(minutes=30)))
-	tasks.append(('Spanish', 'Read One Book', 'HW', datetime.date(2016, 8, 3), datetime.timedelta(hours=1, minutes=30), datetime.timedelta(minutes=10)))
-
+	for task in tasks_from_sql:
+		tasks.append((
+			task.subject,
+			task.content,
+			task.category,
+			task.due_date,
+			datetime.timedelta(minutes=task.total_time),
+			datetime.timedelta(minutes=task.attention_span)
+			))
 	return tasks
 
 def tasksFeed(request):
-	task_blocks = calendar_create(getTasks())
+	task_blocks = calendar_create(getTasks(request.user), request.user)
 	json_list = []
 	for task_block in task_blocks:
 		title = task_block[0]
@@ -173,12 +183,26 @@ def tasksFeed(request):
 
 	return HttpResponse(json.dumps(json_list), content_type='application/json')
 
+@login_required
+def newTask(request):
+	if request.method == 'GET':
+		form = TaskForm()
+	else:
+		form = TaskForm(request.POST)
+		if form.is_valid():
+			task = form.save(commit=False)
+			task.user = request.user
+			task.save()
+			return redirect('/scheduler', permament=True)
+	return render(request, 'scheduler/newtask.html', {'form':form})
 
+def login(request):
+	return render(request, 'scheduler/login.html', {'request':request})
 
-# Create your views here.
+@login_required
 def home(request):
-	tasks = getTasks()
-	task_blocks = calendar_create(tasks)
+	tasks = getTasks(request.user)
+	task_blocks = calendar_create(tasks, request.user)
 	now = datetime.datetime.today()
 	index = 0
 	# Go until you reach the end of the list or find the current task
