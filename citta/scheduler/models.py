@@ -14,6 +14,9 @@ class UserInfo(models.Model):
 	study_start = models.TimeField()
 	study_end = models.TimeField()
 	study_days = models.ManyToManyField(Day)
+	mock_date = models.DateField()
+	mock_time = models.TimeField()
+	json_calendar = models.TextField(default="")
 
 class Task(models.Model):
 	user = models.ForeignKey(User, on_delete=models.CASCADE)

@@ -1,0 +1,15 @@
+{% extends 'scheduler/base.html' %}
+{% block content %}
+<div class="container">
+	<h1>Update Progess for {{ name }}</h1>
+
+	{% if form.errors %}
+	<p>Please fix the errors in your scenario</p>
+	{% endif %}
+	<form method="post" action="{% url 'progress' key %}">
+		{% csrf_token %}
+		{{ form.as_ul }}
+		<input type="submit" class="btn btn-success" value="Update Progress" />
+	</form>
+</div>
+{% endblock %}

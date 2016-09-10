@@ -3,24 +3,27 @@ from django.http import HttpResponse
 from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib.auth import logout as userlogout
+from django.utils import timezone
 from .models import UserInfo, Task
-from .forms import TaskForm
+from .forms import TaskForm, UserInfoForm, ProgressForm, EditTaskForm
 import datetime
 import json
+import re
 
 def task_print(task):
 	return (task[0] + ' ' + task[2] + ': ' + task[1]
 		+ ' Due: ' + task[3].strftime('%m/%d/%y'))
 
-def scheduled_day_time(day):
+def scheduled_day_time(day, break_time):
 	total_time = datetime.timedelta()
 	for task in day:
-		total_time += task[5] # Add the task attn span to the timedelta
+		total_time += task[5] + break_time # Add the task attn span to the timedelta
 	return total_time
 
 # Comparator for task objects
 def task_compare(task1, task2):
-	current_date = datetime.date.today()
+	current_date = timezone.now().date()
 	days_remaining_1 = (task1[3] - current_date).days
 	days_remaining_2 = (task2[3] - current_date).days
 	one_week_1 = days_remaining_1 <= 7
@@ -41,17 +44,20 @@ def calendar_create(unsortedTasks, request_user):
 	# Sort the tasks by priority
 	tasks=[]
 	for newtask in unsortedTasks:
+		added=False
 		for index, oldtask in enumerate(tasks):
 			if task_compare(newtask, oldtask) < 0:
 				tasks.insert(index, newtask)
+				added=True
 				break
-		tasks.append(newtask)
+		if not added:
+			tasks.append(newtask)
 
 	########################
 	#PARSE PRELIMINARY INFO#
 	########################
 	user_info = UserInfo.objects.get(user__pk=request_user.pk)
-	current_date = datetime.date.today()
+	current_date = user_info.mock_date
 	study_period = (user_info.study_start, user_info.study_end)
 	study_days = [day.index for day in user_info.study_days.all()]
 	#NOTE: date.weekday(), Monday is 0, Sunday is 6
@@ -63,6 +69,13 @@ def calendar_create(unsortedTasks, request_user):
 	max_days = 0
 	# Get the time available in a day
 	day_time = datetime.datetime.combine(datetime.date.today(), study_period[1]) - datetime.datetime.combine(datetime.date.today(), study_period[0])
+	elapsed_time = 0
+	print study_period[0], user_info.mock_time
+	if study_period[0] < user_info.mock_time:
+		start = datetime.datetime.combine(datetime.date.today(), study_period[0])
+		current = datetime.datetime.combine(datetime.date.today(), user_info.mock_time)
+		elapsed_time = (current - start).total_seconds() / 60
+		print elapsed_time
 	# List of days with their respective activities
 	active_days_list = []
 	for task in tasks:
@@ -80,7 +93,10 @@ def calendar_create(unsortedTasks, request_user):
 			days_left_date += datetime.timedelta(days=(date_difference % 7))
 			days_left += 1
 		# Copy the task timedelta into time_left
-		time_left = +task[4]
+		percent_left = 100 - task[6]
+		time_left = task[4] * percent_left
+		time_left /= 100
+		print task[0], task[4], time_left
 		day_index = 0
 		date_index = current_date
 		# Go the first available study date
@@ -96,8 +112,12 @@ def calendar_create(unsortedTasks, request_user):
 			if len(active_days_list) <= day_index:
 				new_day = []
 				active_days_list.append(new_day)
+			# Calculate time elapsed from day start to mock time if date is current day
+			current_elapsed = datetime.timedelta()
+			if date_index == current_date:
+				current_elapsed = datetime.timedelta(minutes=elapsed_time)
 			# If day has available time to fit the task
-			if scheduled_day_time(active_days_list[day_index])+task[5]+break_time <= day_time:
+			if scheduled_day_time(active_days_list[day_index], break_time)+task[5]+break_time+current_elapsed <= day_time:
 				active_days_list[day_index].append(task)
 				# Subtract time left by attention span
 				time_left -= task[5]
@@ -137,14 +157,17 @@ def calendar_create(unsortedTasks, request_user):
 		date_index += datetime.timedelta(days=1)
 	for day in active_days_list:
 		# Start tracking time at beginning of study period
-		time_index = study_period[0]
+		time_index = (datetime.datetime.combine(timezone.now().date(),study_period[0]) + (datetime.timedelta(minutes=elapsed_time) if date_index == current_date else datetime.timedelta())).time()
 		for task in day:
 			# Get the full start time of the task from the current date and tiem
 			task_start = datetime.datetime.combine(date_index, time_index)
 			# Create the block with start and end time, factoring in break
-			task_blocks.append((task_print(task), task_start, task_start + task[5] + break_time))
+			task_blocks.append((task[0] + " " + task[1], task_start, task_start + task[5], task[7]))
+			task_blocks.append(("Break", task_start+task[5], task_start+task[5]+break_time))
 			# Hack to add timedelta to time index
-			time_index = (datetime.datetime.combine(datetime.date.today(), time_index) + task[5] + break_time).time()
+			time_index = (datetime.datetime.combine(timezone.now().date(), time_index) + task[5] + break_time).time()
+		#Remove break at the end of the day
+		task_blocks.pop()
 		# Go to the next day and date
 		date_index_index = study_days.index(date_index.weekday())
 		next_day_index = (date_index_index + 1) % len(study_days)
@@ -156,7 +179,7 @@ def calendar_create(unsortedTasks, request_user):
 
 def getTasks(request_user):
 	tasks_from_sql = Task.objects.filter(user__pk=request_user.pk)
-	# Tasks are represented as ( Subject, Content, Category, Due Date, Total Time, Attention Span)
+	# Tasks are represented as ( Subject, Content, Category, Due Date, Total Time, Attention Span, Amount Done)
 	tasks = []
 	for task in tasks_from_sql:
 		tasks.append((
@@ -165,23 +188,58 @@ def getTasks(request_user):
 			task.category,
 			task.due_date,
 			datetime.timedelta(minutes=task.total_time),
-			datetime.timedelta(minutes=task.attention_span)
+			datetime.timedelta(minutes=task.attention_span),
+			task.amount_done,
+			task.pk
 			))
 	return tasks
 
 def tasksFeed(request):
-	task_blocks = calendar_create(getTasks(request.user), request.user)
-	json_list = []
-	for task_block in task_blocks:
-		title = task_block[0]
-		start = task_block[1].strftime("%Y-%m-%dT%H:%M:%S")
-		end = task_block[2].strftime("%Y-%m-%dT%H:%M:%S")
-		allDay = False
+	userinfo = UserInfo.objects.get(user__pk=request.user.pk)
+	return HttpResponse(userinfo.json_calendar, content_type='application/json')
 
-		json_entry = {'title':title, 'start':start, 'end':end, 'allDay': allDay}
-		json_list.append(json_entry)
+@login_required
+def progress(request, key):
+	task = Task.objects.get(pk=key) #TODO: Add safety check for task existing
+	if task.user.pk != request.user.pk:
+		return redirect('home', permanent=True)
+	if request.method == 'GET':
+		form = ProgressForm(instance=task)
+	else:
+		form = ProgressForm(request.POST)
+		if form.is_valid():
+			task.amount_done = form.cleaned_data['amount_done']
+			task.save()
+			return redirect('home', permanent=True)
+	taskname = task.subject + " " + task.category + ": " + task.content
+	return render(request, 'scheduler/progress.html', {'form':form, 'key':key, 'name':taskname})
 
-	return HttpResponse(json.dumps(json_list), content_type='application/json')
+@login_required
+def editTask(request, key):
+	task = Task.objects.get(pk=key) #TODO: Add safety check for task existing
+	userinfo = UserInfo.objects.get(user__pk=request.user.pk)
+	if task.user.pk != request.user.pk:
+		return redirect('home', permanent=True)
+	if request.method == 'GET':
+		form = EditTaskForm(instance=task)
+	else:
+		form = EditTaskForm(request.POST)
+		if form.is_valid():
+			task = form.save(commit=False)
+			task.user = request.user
+			task.pk = key
+			task.save()
+		return redirect('reschedule', permanent=True)
+	taskname = task.subject + " " + task.category + ": " + task.content
+	return render(request, 'scheduler/edittask.html', {'form':form, 'key':key, 'name':taskname})
+
+@login_required
+def deleteTask(request, key):
+	task = Task.objects.get(pk=key) #TODO: Add safety check for task existing
+	if task.user.pk != request.user.pk:
+		return redirect('home', permanent=True)
+	task.delete()
+	return redirect('reschedule', permanent=True)
 
 @login_required
 def newTask(request):
@@ -193,33 +251,96 @@ def newTask(request):
 			task = form.save(commit=False)
 			task.user = request.user
 			task.save()
-			return redirect('/scheduler', permament=True)
+			return redirect('reschedule', permanent=True)
 	return render(request, 'scheduler/newtask.html', {'form':form})
+
+def logout(request):
+	userlogout(request)
+	return redirect('login', permanent=True)
 
 def login(request):
 	return render(request, 'scheduler/login.html', {'request':request})
 
 @login_required
-def home(request):
-	tasks = getTasks(request.user)
-	task_blocks = calendar_create(tasks, request.user)
-	now = datetime.datetime.today()
-	index = 0
-	# Go until you reach the end of the list or find the current task
-	while index < len(task_blocks) and task_blocks[index][2] < now:
-		index += 1
-	prev = "No Previous Task"
-	if index > 0:
-		prev = task_blocks[index-1][0]
-	current = "No Current Task"
-	next = "No Next Task"
-	# Did the task at index start before now. We know it must end after now, so this means it is happening now
-	if index < len(task_blocks) and task_blocks[index][1] < now:
-		current = task_blocks[index][0]
-		if index + 1 < len(task_blocks):
-			next = task_blocks[index+1][0]
-	elif index < len(task_blocks):
-		next = task_blocks[index][0]
+def setUser(request):
+	if request.method == 'GET':
+		userinfo = UserInfo.objects.filter(user__pk=request.user.pk)
+		if len(userinfo)==0:
+			form = UserInfoForm()
+		else:
+			form = UserInfoForm(instance=userinfo[0])
+	else:
+		form = UserInfoForm(request.POST)
+		if form.is_valid():
+			userinfo = UserInfo.objects.get(user__pk=request.user.pk)
+			userinfoF = form.save(commit=False)
+			userinfoF.user = userinfo.user
+			userinfoF.mock_date = userinfo.mock_date
+			userinfoF.mock_time = userinfo.mock_time
+			print userinfoF.study_days
+			userinfoF.save()
+			return redirect('reschedule', permanent=True)
+	return render(request, 'scheduler/setuser.html', {'form':form})
 
-	context = {'tasks':tasks, 'prev':prev, 'current':current, 'next':next }
+@login_required
+def reschedule(request):
+	print "Reschedule"
+	userinfo = UserInfo.objects.get(user__pk=request.user.pk)
+	userinfo.mock_date = timezone.now().date()
+	userinfo.mock_time = timezone.now().time()
+	userinfo.save()
+	task_blocks = calendar_create(getTasks(request.user), request.user)
+	#Save the calculated data into the user data
+	json_list = []
+	for task_block in task_blocks:
+		title = task_block[0]
+		color = "Light blue" if title == "Break" else "Yellow"
+		start = task_block[1].strftime("%Y-%m-%dT%H:%M:%S")
+		end = task_block[2].strftime("%Y-%m-%dT%H:%M:%S")
+		allDay = False
+		pk = task_block[3] if len(task_block) == 4 else None
+
+		json_entry = {'title':title, 'start':start, 'end':end, 'allDay': allDay, 'color':color, 'pk':pk}
+		json_list.append(json_entry)
+	userinfo.json_calendar = json.dumps(json_list)
+	userinfo.save()
+	return redirect('home', permanent=True)
+
+@login_required
+def home(request):
+	#Check if user has associated userinfo
+	if not list(UserInfo.objects.filter(user__pk=request.user.pk)):
+		return redirect('setuser', permanent=True)
+	tasks = getTasks(request.user)
+	userinfo = UserInfo.objects.get(user__pk=request.user.pk)
+	#Tasks are listed in order, so get the first two
+	blocks = calendar_create(tasks, request.user)
+	current = None
+	nextT = None
+	now = timezone.now()
+	#Find the first task that ends after the current time
+	index=0
+	while blocks[index][2] <= now:
+		index += 1
+	first = blocks[index]
+	second = blocks[index+1]
+	#Case1: First task starts after now
+	if first[1] > now:
+		nextT = first
+	#Case2: First task already started
+	else:
+		current = first
+		nextT = second
+	#Check if user is current in a break or not
+	onBreak = nextT[0] != "Break"
+	#Reduce tasks to necessary data
+	tasks = [(task[0], task[1], task[2], task[3], task[7], task[6]-100) for task in tasks]
+	#Determine whether to countdown to end of current task or beginning of next task
+	if onBreak:
+		#Count down to beginning of next task
+		timing = (nextT[1] - now).total_seconds()
+	else:
+		#Count down to end of current task
+		timing = (current[2] - now).total_seconds()
+	context = {'tasks':tasks, 'current':current, 'next':nextT, 'onBreak':onBreak, 'timing':timing}
 	return render(request, 'scheduler/home.html', context)

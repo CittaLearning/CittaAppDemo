@@ -1,0 +1,17 @@
+{% extends 'scheduler/base.html' %}
+{% block content %}
+<div class="container">
+	<h1>Edit {{ name }}</h1>
+
+	{% if form.errors %}
+	<p>Please fix the errors in your scenario</p>
+	{% endif %}
+	<form method="post" action="{% url 'edittask' key %}">
+		{% csrf_token %}
+		{{ form.as_ul }}
+		<input type="submit" class="btn btn-success" value="Save" />
+	</form>
+	<a href="{% url 'home' %}" class="btn btn-danger" role="button">Cancel</a>
+	<a href="{% url 'deletetask' key %}" class="btn btn-danger" role="button">Delete</a>
+</div>
+{% endblock %}

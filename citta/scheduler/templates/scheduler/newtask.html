@@ -1,6 +1,6 @@
 {% extends 'scheduler/base.html' %}
 {% block content %}
-
+<div class="container">
 	<h1>New Task</h1>
 
 	{% if form.errors %}
@@ -8,8 +8,9 @@
 	{% endif %}
 	<form method="post" action="{% url 'newtask' %}">
 		{% csrf_token %}
-		{{ form }}
-		<input type="submit" value="Create Task" />
+		{{ form.as_ul }}
+		<input type="submit" class="btn btn-success" value="Create Task" />
 	</form>
-
+	<a href="{% url 'home' %}" class="btn btn-danger" role="button">Cancel</a>
+</div>
 {% endblock %}

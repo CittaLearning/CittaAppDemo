@@ -1,62 +1,106 @@
 {% extends 'scheduler/base.html' %}
 {% block head %}
-	<script>
+<script>
 	$(document).ready(function() {
 
-    // page is now ready, initialize the calendar...
+    		// page is now ready, initialize the calendar...
+		$('#fullCalendar').fullCalendar({
+        	// put your options and callbacks here
+			header: {
+				left: 'prev,next today',
+				center: 'title',
+				right: 'month,basicWeek,basicDay'
+        		},
 
-    $('#fullCalendar').fullCalendar({
-        // put your options and callbacks here
-        header: {
-        	left: 'prev,next today',
-        	center: 'title',
-        	right: 'month,basicWeek,basicDay'
-        },
+        		eventSources: [
 
-        eventSources: [
+        		// your event source
+        		{
+            			url: '/scheduler/tasksFeed/', // use the `url` property
+            			textColor: 'black'  // an option!
+			}
 
-        // your event source
-        {
-            url: '/scheduler/tasksFeed/', // use the `url` property
-            color: 'yellow',    // an option!
-            textColor: 'black'  // an option!
-        }
+        		// any other sources...
 
-        // any other sources...
+			],
 
-        ]
-    });
+			defaultView: 'basicDay',
+			eventClick: function(event){
+				if(event.pk){
+					var url = "/scheduler/edittask/" + event.pk + "/";
+					window.location.href = url;
+				}
+			}
+		});
 
-});
-	</script>
-	{% endblock %}
-	{% block content %}
+		$(".clickable-row").click(function(){
+			window.location.href = $(this).data("href");
+		});
+		var fiveMinutes = {{timing}}, display = $('#timer');
+		startTimer(fiveMinutes, display);
 
-	<ul class="nav nav-tabs">
-		<li class="active"><a data-toggle="tab" href="#home">Home</a></li>
-		<li><a data-toggle="tab" href="#calendar">Calendar</a></li>
-		<li><a data-toggle="tab" href="#tasks">Tasks</a></li>
-	</ul>
+
+	});
+	$(document).keypress(function(e){
+		var id = e.which - 48;
+		var url = "/scheduler/progress/" + id + "/";
+		window.location.href = url;
+	});
+	function testFunc() {
+		setTimeout(function() {$('#fullCalendar').fullCalendar('render');}, 200);
+	}
+	function startTimer(duration, display) {
+		var timer = duration, minutes, seconds;
+		setInterval(function() {
+			minutes = parseInt(timer / 60, 10);
+			seconds = parseInt(timer % 60, 10);
+
+			minutes = minutes < 10 ? "0" + minutes : minutes;
+			seconds = seconds < 10 ? "0" + seconds : seconds;
+
+			display.text("Current task ends in " + minutes + ":" + seconds);
+
+			if (--timer < 0) {
+				//TODO: END CURRENT TASK
+				if({{onBreak}}){
+					window.location.href="/scheduler/" // Rerfresh page if task is now starting
+				}
+				else{
+					var id = {{current.4}};
+					var url = "/scheduler/progress/" + id + "/";
+					window.location.href = url;
+				}
+			}
+		}, 1000);
+	}
+</script>
+{% endblock %}
+{% block content %}
+	<div class="container">
+		<ul class="nav nav-tabs">
+			<li class="active"><a data-toggle="tab" href="#home">Home</a></li>
+			<li onclick="testFunc()"><a data-toggle="tab" href="#calendar">Calendar</a></li>
+			<li><a data-toggle="tab" href="#tasks">Tasks</a></li>
+		</ul>
+	</div>
 	<div class="tab-content">
 		<div id="home" class="tab-pane fade in active">
-			<h3>HOME</h3>
 			<div class="container">
+				<h3>HOME</h3>
+				<div id="timer"></div>
 				<div class="table-responsive">
 					<table class="table table-hover table-bordered table-striped">
 						<tr>
-							<th>Previous Task</th>
-							<td>{{prev}}</td>
-						</tr>
-						<tr>
 							<th>Current Task</th>
-							<td>{{current}}</td>
+							<td>{{current.0}}</td>
 						</tr>
 						<tr>
 							<th>Next Task</th>
-							<td>{{next}}</td>
+							<td>{{next.0}}</td>
 						</tr>
 					</table>
 				</div>
+				<a href="{% url 'setuser' %}" class="btn btn-success" role="button">Edit User Settings</a>
 			</div>
 		</div>
 		<div id="calendar" class="tab-pane fade ">
@@ -64,9 +108,9 @@
 			<div id="fullCalendar"></div>
 		</div>
 		<div id="tasks" class="tab-pane fade ">
-			<h3>TASKS</h3>
-			<p><a href="{% url 'newtask' %}"">Add new task</a></p>
 			<div class="container">
+				<h3>TASKS</h3>
+				<p><a href="{% url 'newtask' %}">Add new task</a></p>
 				<div class="table-responsive">
 					<table class="table table-hover table-bordered table-striped">
 						<tr>
@@ -74,14 +118,17 @@
 							<th>Content</th>
 							<th>Category</th>
 							<th>Due Date</th>
-							<th>Total Time</th>
-							<th>Attention Span</th>
 						</tr>
 						{% for task in tasks %}
-						<tr>
-							{% for info in task %}
-							<td>{{info}}</td>
-							{% endfor %}
+						{% if task.5 %}
+						<tr class='clickable-row' data-href='{% url 'edittask' task.4 %}'>
+						{% else %}
+						<tr class='clickable-row success' data-href='{% url 'edittask' task.4 %}'>
+						{% endif %}
+							<td>{{task.0}}</td>
+							<td>{{task.1}}</td>
+							<td>{{task.2}}</td>
+							<td>{{task.3}}</td>
 						</tr>
 						{% endfor %}
 					</table>
