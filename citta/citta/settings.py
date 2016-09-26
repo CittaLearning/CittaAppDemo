@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 
 import os
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'citta.settings'
+#os.environ['DJANGO_SETTINGS_MODULE'] = 'citta.settings'
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -131,16 +131,16 @@ USE_L10N = True
 USE_TZ = False
 
 #LOCAL
-#GOOGLE_OAUTH2_CLIENT_ID = '863866533021-masikb4m0mp9of39ms0coimt7s2f8gq5.apps.googleusercontent.com'
+GOOGLE_OAUTH2_CLIENT_ID = '863866533021-masikb4m0mp9of39ms0coimt7s2f8gq5.apps.googleusercontent.com'
 
 #CITTA-1386
-GOOGLE_OAUTH2_CLIENT_ID = '863866533021-qmajnvaijcr9f5djvd6e2q8loekpmiv5.apps.googleusercontent.com'
+#GOOGLE_OAUTH2_CLIENT_ID = '863866533021-qmajnvaijcr9f5djvd6e2q8loekpmiv5.apps.googleusercontent.com'
 
 #LOCAL
-#GOOGLE_OAUTH2_CLIENT_SECRET = 'xohjj095Fd-QvuVh4thwBmfY'
+GOOGLE_OAUTH2_CLIENT_SECRET = 'xohjj095Fd-QvuVh4thwBmfY'
 
 #CITTA-1386
-GOOGLE_OAUTH2_CLIENT_SECRET = 'jrMBNt_0AP4pa4svAFKWPDJJ'
+#GOOGLE_OAUTH2_CLIENT_SECRET = 'jrMBNt_0AP4pa4svAFKWPDJJ'
 
 SOCIAL_AUTH_COMPLETE_URL_NAME = 'socialauth_complete'
 
@@ -149,10 +149,14 @@ SOCIAL_AUTH_ASSOCIATE_URL_NAME = 'socialauth_associate_complete'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
 
-SITE_ID = 3
+# SITE_ID: 1 for local, 2 for citta-1386.blogspot.com
+SITE_ID = 2
 
-STATIC_URL = 'http://storage.googleapis.com/citta-1386.appspot.com/static/'
+#CITTA-1386
+#STATIC_URL = 'http://storage.googleapis.com/citta-1386.appspot.com/static/'
 
+#LOCAL
+STATIC_URL = '/static/'
 LOGIN_URL = '/scheduler/login/'
 
 LOGIN_REDIRECT_URL = '/scheduler/'

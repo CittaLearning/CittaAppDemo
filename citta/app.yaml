@@ -1,14 +1,7 @@
 runtime: python27
-api_version: 1
+vm: true
+entrypoint: gunicorn -b :$PORT citta.wsgi
 threadsafe: true
-
-libraries:
-- name: django
-  version: "1.9"
-
-builtins:
-- django_wsgi: on
-
 skip_files:
 - ^(.*/)?#.*#$
 - ^(.*/)?.*~$

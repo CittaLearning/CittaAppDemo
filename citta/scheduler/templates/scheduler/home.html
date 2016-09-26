@@ -36,9 +36,11 @@
 		$(".clickable-row").click(function(){
 			window.location.href = $(this).data("href");
 		});
-		var fiveMinutes = {{timing}}, display = $('#timer');
-		startTimer(fiveMinutes, display);
-
+		//if ({{timer}}){
+			alert("Timer");
+			var fiveMinutes = {{timing}}, display = $('#timer');
+			startTimer(fiveMinutes, display);
+		//}
 
 	});
 	$(document).keypress(function(e){
@@ -61,13 +63,16 @@
 			display.text("Current task ends in " + minutes + ":" + seconds);
 
 			if (--timer < 0) {
-				//TODO: END CURRENT TASK
 				if({{onBreak}}){
 					window.location.href="/scheduler/" // Rerfresh page if task is now starting
 				}
 				else{
+					{% if current %}
 					var id = {{current.4}};
 					var url = "/scheduler/progress/" + id + "/";
+					{% else %}
+					var url = "/scheduler/"
+					{% endif %}
 					window.location.href = url;
 				}
 			}

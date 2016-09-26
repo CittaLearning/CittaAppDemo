@@ -12,10 +12,13 @@ import json
 import re
 
 def task_print(task):
+	'''Convert a task tuple into a readable string'''
 	return (task[0] + ' ' + task[2] + ': ' + task[1]
 		+ ' Due: ' + task[3].strftime('%m/%d/%y'))
 
 def scheduled_day_time(day, break_time):
+	'''Get the total amount of time currently scheduled in a day.
+	This takes a list of task tuples, as well as the break time between them'''
 	total_time = datetime.timedelta()
 	for task in day:
 		total_time += task[5] + break_time # Add the task attn span to the timedelta
@@ -23,6 +26,7 @@ def scheduled_day_time(day, break_time):
 
 # Comparator for task objects
 def task_compare(task1, task2):
+	'''Comparator for task tuples'''
 	current_date = timezone.now().date()
 	days_remaining_1 = (task1[3] - current_date).days
 	days_remaining_2 = (task2[3] - current_date).days
@@ -41,6 +45,7 @@ def task_compare(task1, task2):
 	return days_remaining_1 - days_remaining_2
 
 def calendar_create(unsortedTasks, request_user):
+	'''Create a list of task blocks from a list of unsorted task tuples and a user'''
 	# Sort the tasks by priority
 	tasks=[]
 	for newtask in unsortedTasks:
@@ -178,6 +183,7 @@ def calendar_create(unsortedTasks, request_user):
 	return task_blocks
 
 def getTasks(request_user):
+	'''Get the relevant tasks for the current user'''
 	tasks_from_sql = Task.objects.filter(user__pk=request_user.pk)
 	# Tasks are represented as ( Subject, Content, Category, Due Date, Total Time, Attention Span, Amount Done)
 	tasks = []
@@ -195,11 +201,13 @@ def getTasks(request_user):
 	return tasks
 
 def tasksFeed(request):
+	'''Get the json calendar for the current user'''
 	userinfo = UserInfo.objects.get(user__pk=request.user.pk)
 	return HttpResponse(userinfo.json_calendar, content_type='application/json')
 
 @login_required
 def progress(request, key):
+	'''View for updating the progress of a task'''
 	task = Task.objects.get(pk=key) #TODO: Add safety check for task existing
 	if task.user.pk != request.user.pk:
 		return redirect('home', permanent=True)
@@ -216,6 +224,7 @@ def progress(request, key):
 
 @login_required
 def editTask(request, key):
+	'''View for editing a task'''
 	task = Task.objects.get(pk=key) #TODO: Add safety check for task existing
 	userinfo = UserInfo.objects.get(user__pk=request.user.pk)
 	if task.user.pk != request.user.pk:
@@ -235,6 +244,7 @@ def editTask(request, key):
 
 @login_required
 def deleteTask(request, key):
+	'''View for deleting a task'''
 	task = Task.objects.get(pk=key) #TODO: Add safety check for task existing
 	if task.user.pk != request.user.pk:
 		return redirect('home', permanent=True)
@@ -243,6 +253,7 @@ def deleteTask(request, key):
 
 @login_required
 def newTask(request):
+	'''View for creating a task'''
 	if request.method == 'GET':
 		form = TaskForm()
 	else:
@@ -255,14 +266,17 @@ def newTask(request):
 	return render(request, 'scheduler/newtask.html', {'form':form})
 
 def logout(request):
+	'''View for logging a user out'''
 	userlogout(request)
 	return redirect('login', permanent=True)
 
 def login(request):
+	'''View for logging a user in'''
 	return render(request, 'scheduler/login.html', {'request':request})
 
 @login_required
 def setUser(request):
+	'''View for setting up a user'''
 	if request.method == 'GET':
 		userinfo = UserInfo.objects.filter(user__pk=request.user.pk)
 		if len(userinfo)==0:
@@ -272,18 +286,17 @@ def setUser(request):
 	else:
 		form = UserInfoForm(request.POST)
 		if form.is_valid():
-			userinfo = UserInfo.objects.get(user__pk=request.user.pk)
 			userinfoF = form.save(commit=False)
-			userinfoF.user = userinfo.user
-			userinfoF.mock_date = userinfo.mock_date
-			userinfoF.mock_time = userinfo.mock_time
-			print userinfoF.study_days
+			userinfoF.user = request.user
+			userinfoF.save()
+			userinfoF.study_days = form.cleaned_data['study_days']
 			userinfoF.save()
 			return redirect('reschedule', permanent=True)
 	return render(request, 'scheduler/setuser.html', {'form':form})
 
 @login_required
 def reschedule(request):
+	'''View for rescheduling a user's clanedar'''
 	print "Reschedule"
 	userinfo = UserInfo.objects.get(user__pk=request.user.pk)
 	userinfo.mock_date = timezone.now().date()
@@ -308,6 +321,7 @@ def reschedule(request):
 
 @login_required
 def home(request):
+	'''Home view'''
 	#Check if user has associated userinfo
 	if not list(UserInfo.objects.filter(user__pk=request.user.pk)):
 		return redirect('setuser', permanent=True)
@@ -320,27 +334,41 @@ def home(request):
 	now = timezone.now()
 	#Find the first task that ends after the current time
 	index=0
-	while blocks[index][2] <= now:
-		index += 1
-	first = blocks[index]
-	second = blocks[index+1]
-	#Case1: First task starts after now
-	if first[1] > now:
-		nextT = first
-	#Case2: First task already started
+	if len(blocks) == 0:
+		current = None
+		nextT = None
+		onBreak = True
+		timer = False
+		timing = 0
+	elif len(blocks) == 1:
+		current = None
+		nextT = blocks[0]
+		onBreak = True
+		timer = False
+		timing = 0
 	else:
-		current = first
-		nextT = second
-	#Check if user is current in a break or not
-	onBreak = nextT[0] != "Break"
+		while blocks[index][2] <= now:
+			index += 1
+		first = blocks[index]
+		second = blocks[index+1]
+		#Case1: First task starts after now
+		if first[1] > now:
+			nextT = first
+		#Case2: First task already started
+		else:
+			current = first
+			nextT = second
+		#Check if user is current in a break or not
+		onBreak = nextT[0] != "Break"
+		timer = True
+		#Determine whether to countdown to end of current task or beginning of next task
+		if onBreak:
+			#Count down to beginning of next task
+			timing = (nextT[1] - now).total_seconds()
+		else:
+			#Count down to end of current task
+			timing = (current[2] - now).total_seconds()
 	#Reduce tasks to necessary data
 	tasks = [(task[0], task[1], task[2], task[3], task[7], task[6]-100) for task in tasks]
-	#Determine whether to countdown to end of current task or beginning of next task
-	if onBreak:
-		#Count down to beginning of next task
-		timing = (nextT[1] - now).total_seconds()
-	else:
-		#Count down to end of current task
-		timing = (current[2] - now).total_seconds()
-	context = {'tasks':tasks, 'current':current, 'next':nextT, 'onBreak':onBreak, 'timing':timing}
+	context = {'tasks':tasks, 'current':current, 'next':nextT, 'onBreak':onBreak, 'timing':timing, 'timer':timer}
 	return render(request, 'scheduler/home.html', context)

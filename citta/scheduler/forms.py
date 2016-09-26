@@ -1,6 +1,7 @@
 from django.forms import ModelForm, CheckboxSelectMultiple, ValidationError
 from .models import UserInfo, Task
 
+# Django form for initially setting up a User's individual settings
 class UserInfoForm(ModelForm):
 	def clean_study_days(self):
 		data = self.cleaned_data['study_days']
@@ -25,7 +26,7 @@ class UserInfoForm(ModelForm):
 			'study_end',
 			'study_days'
 		]
-
+# Django form for creating a class
 class TaskForm(ModelForm):
 	class Meta:
 		model = Task
@@ -38,6 +39,7 @@ class TaskForm(ModelForm):
 			'attention_span',
 		]
 
+# Django form for editing a task
 class EditTaskForm(ModelForm):
 	class Meta:
 		model = Task
@@ -51,6 +53,7 @@ class EditTaskForm(ModelForm):
 			'amount_done',
 		]
 
+# Django form for updating the progress on a task
 class ProgressForm(ModelForm):
 	def clean_amount_done(self):
 		data = self.cleaned_data['amount_done']

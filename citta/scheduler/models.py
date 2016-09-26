@@ -14,8 +14,8 @@ class UserInfo(models.Model):
 	study_start = models.TimeField()
 	study_end = models.TimeField()
 	study_days = models.ManyToManyField(Day)
-	mock_date = models.DateField()
-	mock_time = models.TimeField()
+	mock_date = models.DateField(auto_now=True)
+	mock_time = models.TimeField(auto_now=True)
 	json_calendar = models.TextField(default="")
 
 class Task(models.Model):
