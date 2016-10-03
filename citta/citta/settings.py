@@ -85,10 +85,10 @@ WSGI_APPLICATION = 'citta.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'HOST': '173.194.255.165',
+        'HOST': '<Request IPV4 address from Google App Engine Console>',
         'NAME': 'citta',
-        'USER': 'rishabh',
-        'PASSWORD': 'h2owsome'
+        'USER': 'citta',
+        'PASSWORD': 'cittapassword'
     }
 }
 
