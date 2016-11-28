@@ -1,7 +1,23 @@
 runtime: python27
-vm: true
-entrypoint: gunicorn -b :$PORT citta.wsgi
+api_version: 1
 threadsafe: true
+#vm: true
+
+
+handlers:
+- url: /static
+  static_dir: static/
+- url: .*
+  script: citta.wsgi.application
+
+libraries:
+- name: MySQLdb
+  version: 1.2.5
+- name: django
+  version: 1.9
+- name: ssl
+  version: latest
+
 skip_files:
 - ^(.*/)?#.*#$
 - ^(.*/)?.*~$
@@ -9,3 +25,8 @@ skip_files:
 - ^(.*/)?.*/RCS/.*$
 - ^(.*/)?\..*$
 - ^(.*/)?script\ \(dev\).tmpl$
+
+env_variables:
+    CLOUDSQL_CONNECTION_NAME: cittademo-148708:citta-demo 
+    CLOUDSQL_USER: cittauser 
+    CLOUDSQL_PASSWORD: cittauser

@@ -27,11 +27,12 @@ SECRET_KEY = 'jg%162)y=l4*0zmcy%lle_xi2a%n=*x%&u6+05l1x2ep9d)kfv'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['appspot.com']
+#ALLOWED_HOSTS = ['appspot.com'] 
+ALLOWED_HOSTS = []
 
 
 # Application definition
-
+#
 INSTALLED_APPS = [
     'scheduler.apps.SchedulerConfig',
     'django.contrib.admin',
@@ -81,17 +82,30 @@ WSGI_APPLICATION = 'citta.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'HOST': '<Request IPV4 address from Google App Engine Console>',
-        'NAME': 'citta',
-        'USER': 'citta',
-        'PASSWORD': 'cittapassword'
+# [START db_setup]
+import os
+if os.getenv('SERVER_SOFTWARE', '').startswith('Google App Engine'):
+    # Running on production App Engine, so use a Google Cloud SQL database.
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'HOST': '/cloudsql/cittademo-148708:citta-demo',
+            'NAME': 'cittadb',
+            'USER': 'root',
+        }
     }
-}
-
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'cittadb',
+            'USER': 'cittauser',
+            'PASSWORD':'cittauser',
+            'HOST': '173.194.109.72',
+            'PORT': '3306',
+        }
+    }
+# [END db_setup]
 AUTHENTICATION_BACKENDS = [
 	'allauth.account.auth_backends.AuthenticationBackend',
 	'django.contrib.auth.backends.ModelBackend',
@@ -131,16 +145,16 @@ USE_L10N = True
 USE_TZ = False
 
 #LOCAL
-GOOGLE_OAUTH2_CLIENT_ID = '863866533021-masikb4m0mp9of39ms0coimt7s2f8gq5.apps.googleusercontent.com'
+#GOOGLE_OAUTH2_CLIENT_ID = '677760922985-61mffv28v8pgl6jtchatqofj7deh2egf.apps.googleusercontent.com' 
 
-#CITTA-1386
-#GOOGLE_OAUTH2_CLIENT_ID = '863866533021-qmajnvaijcr9f5djvd6e2q8loekpmiv5.apps.googleusercontent.com'
+#CITTAi-148708
+GOOGLE_OAUTH2_CLIENT_ID = '677760922985-r0d9ifiq2ab807seks7lcerlr3utltv1.apps.googleusercontent.com' 
 
 #LOCAL
-GOOGLE_OAUTH2_CLIENT_SECRET = 'xohjj095Fd-QvuVh4thwBmfY'
+#GOOGLE_OAUTH2_CLIENT_SECRET = 'G1TR8yuEf-ZOldQPE95i7aaY'
 
-#CITTA-1386
-#GOOGLE_OAUTH2_CLIENT_SECRET = 'jrMBNt_0AP4pa4svAFKWPDJJ'
+#CITTA-148708
+GOOGLE_OAUTH2_CLIENT_SECRET = 'vrsGSDp3gcBzV3Fa9i1X-6TD'
 
 SOCIAL_AUTH_COMPLETE_URL_NAME = 'socialauth_complete'
 
@@ -149,14 +163,15 @@ SOCIAL_AUTH_ASSOCIATE_URL_NAME = 'socialauth_associate_complete'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
 
-# SITE_ID: 1 for local, 2 for citta-1386.blogspot.com
+# SITE_ID: 1 for local, 2 for citta-148708.blogspot.com
 SITE_ID = 2
 
-#CITTA-1386
-#STATIC_URL = 'http://storage.googleapis.com/citta-1386.appspot.com/static/'
+#CITTA-148708
+STATIC_ROOT = 'https://storage.googleapis.com/citta-bucket/static/'
 
 #LOCAL
-STATIC_URL = '/static/'
+STATIC_URL ='/static/'
+#STATIC_URL = '/static/'
 LOGIN_URL = '/scheduler/login/'
 
 LOGIN_REDIRECT_URL = '/scheduler/'
