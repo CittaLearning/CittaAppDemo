@@ -23,6 +23,8 @@ def scheduled_day_time(day, break_time):
 	This takes a list of task tuples, as well as the break time between them'''
     total_time = datetime.timedelta()
     for task in day:
+        if type(task) is datetime.date:
+            continue
         print ('task %s break time %s' % (task[5], break_time))
         total_time += task[5] + break_time  # Add the task attn span to the timedelta
     return total_time
@@ -75,6 +77,7 @@ def get_first_study_day(current_date, study_days):
         date_index += datetime.timedelta(days=1)
     return date_index
 
+
 def calendar_create(unsortedTasks, request_user):
     '''Create a list of task blocks from a list of unsorted task tuples and a user'''
     # Sort the tasks by priority
@@ -109,25 +112,14 @@ def calendar_create(unsortedTasks, request_user):
     day_time = datetime.datetime.combine(datetime.date.today(), study_period[1]) - datetime.datetime.combine(
         datetime.date.today(), study_period[0])
     elapsed_time = 0
-    if study_period[0] < user_info.mock_time:
+    if user_info.mock_time > study_period[0]:
         start = datetime.datetime.combine(datetime.date.today(), study_period[0])
         current = datetime.datetime.combine(datetime.date.today(), user_info.mock_time)
         elapsed_time = (current - start).total_seconds() / 60
-        print ("Elapsed time", elapsed_time)
+
     # List of days with their respective activities
     active_days_list = []
     for task in tasks:
-        days_left = 0
-        # Find the first available day to study
-        days_left_date = get_first_study_day(current_date, study_days)
-
-        # Count the number of available days to study
-        # task[3] is the due date.
-        while days_left_date < task[3]:
-            days_left_date = jump_next_date(study_days, days_left_date)
-            days_left += 1
-            print('Next avl date %s:: days_left %d' % (days_left_date, days_left))
-        # Copy the task timedelta into time_left
         percent_left = 100 - task[6]
         time_left = task[4] * percent_left
         time_left /= 100
@@ -135,42 +127,46 @@ def calendar_create(unsortedTasks, request_user):
         day_index = 0
         # Go the first available study date
         date_index = get_first_study_day(current_date, study_days)
+        if date_index == current_date:
+            # On current date if the current time is greater than study period,
+            # then skip the current day.
+            if day_time <= (break_time + datetime.timedelta(minutes=elapsed_time) + task[5]):
+                date_index = jump_next_date(study_days, date_index)
+                elapsed_time = 0
+            else :
+                current_elapsed = elapsed_time
+
         full_days = []
         # while the time_left is greater than the default timedelta, 0
         while time_left > datetime.timedelta():
-            if len(full_days) == days_left:
+            if date_index > task[3]:
                 # TODO: TASK CANNOT BE ALLOTTED
                 break
             # If array for this day has not been created yet, create it
             if len(active_days_list) <= day_index:
                 new_day = []
                 active_days_list.append(new_day)
-            # Calculate time elapsed from day start to mock time if date is current day
-            current_elapsed = datetime.timedelta()
-            if date_index == current_date:
-                current_elapsed = datetime.timedelta(minutes=elapsed_time)
-                # On the current day if the time elapsed is greater than the day_time
-                # skip this day.
-                if current_elapsed >= day_time:
-                    date_index = jump_next_date(study_days, date_index)
-                    continue
+                active_days_list[day_index].append(date_index)
 
-            print('num days %d %d %s' % (day_index, time_left.seconds / 60, date_index))
+            print('task %s : day_time %s day index %d time left %d date %s' % (task[0], day_time,
+                                                                               day_index,
+                                                                               time_left.seconds / 60, date_index))
+            if date_index != current_date:
+                current_elapsed = 0
+
             # If day has available time to fit the task
-            if scheduled_day_time(active_days_list[day_index], break_time) + break_time + current_elapsed + task[5] <= day_time:
+            # FIXME : on the first day check should be elapsed + attention span <= day_time.
+            if scheduled_day_time(active_days_list[day_index], break_time) + break_time\
+                    + datetime.timedelta(minutes=current_elapsed) + task[5] <= day_time:
                 active_days_list[day_index].append(task)
                 # Subtract time left by attention span
                 time_left -= task[5]
             elif day_index not in full_days:
                 full_days.append(day_index)
-                print("Append date %s:: day %d" % (date_index, day_index))
+                print("Append date %s:: day index %d" % (date_index, day_index))
                 # Go to the next day and date
                 date_index = jump_next_date(study_days, date_index)
                 day_index += 1
-                if date_index > task[3]:
-                    # Reset day and date index
-                    date_index = get_first_study_day(current_date, study_days)
-                    day_index = 0
 
     for day in active_days_list:
         # Assume day is sorted by priority
@@ -178,6 +174,8 @@ def calendar_create(unsortedTasks, request_user):
         while task_index < len(day):
             # Intertwine high priority tasks with low priority tasks
             low_priority_task = day.pop(len(day) - 1)
+            if type(low_priority_task) is datetime.date:
+                continue
             day.insert(task_index, low_priority_task)
             task_index += 1
 
@@ -187,33 +185,25 @@ def calendar_create(unsortedTasks, request_user):
 
     # A task block is structured as follows: (Name, Start, End)
     task_blocks = []
-    # Go to the first study day
-    date_index = get_first_study_day(current_date, study_days)
-    if date_index == current_date:
-        current_elapsed = datetime.timedelta(minutes=elapsed_time)
-        # On the current day if the time elapsed is greater than the day_time
-        # skip this day.
-        if current_elapsed >= day_time:
-            date_index = jump_next_date(study_days, date_index)
-
     for day in active_days_list:
         # Start tracking time at beginning of study period
+        date_index = day[0]
         time_index = (datetime.datetime.combine(timezone.now().date(), study_period[0]) + (
             datetime.timedelta(minutes=elapsed_time) if date_index == current_date else datetime.timedelta())).time()
         for task in day:
-            print(" task %s time index %d:%d:%d" % (task, time_index.hour, time_index.minute, time_index.second))
-            # Get the full start time of the task from the current date and tiem
+            if type(task) is datetime.date:
+                continue
+            # print(" task %s time index %d:%d:%d" % (task, time_index.hour, time_index.minute, time_index.second))
+            # Get the full start time of the task from the current date and item
             task_start = datetime.datetime.combine(date_index, time_index)
             # Create the block with start and end time, factoring in break
             task_blocks.append((task[0] + " " + task[1], task_start, task_start + task[5], task[7]))
             task_blocks.append(("Break", task_start + task[5], task_start + task[5] + break_time))
             # Hack to add timedelta to time index
-            print ('task block %s' %task_blocks)
+            print ('task block %s' % task_blocks)
             time_index = (datetime.datetime.combine(timezone.now().date(), time_index) + task[5] + break_time).time()
         # Remove break at the end of the day
         task_blocks.pop()
-        # Go to the next day and date
-        date_index = jump_next_date(study_days, date_index)
 
     # Return the list of individual task blocks
     return task_blocks
@@ -363,6 +353,7 @@ def reschedule(request):
         json_list.append(json_entry)
     userinfo.json_calendar = json.dumps(json_list)
     userinfo.save()
+    print('userinfo.jsoncalendar %s' % json.dumps(json_list))
     return redirect('home', permanent=True)
 
 
@@ -370,6 +361,7 @@ def reschedule(request):
 def home(request):
     '''Home view'''
     # Check if user has associated userinfo
+    print('home==============')
     if not list(UserInfo.objects.filter(user__pk=request.user.pk)):
         return redirect('setuser', permanent=True)
     tasks = getTasks(request.user)
@@ -381,6 +373,7 @@ def home(request):
     now = timezone.now()
     # Find the first task that ends after the current time
     index = 0
+    print('number of blocks %d' %len(blocks))
     if len(blocks) == 0:
         current = None
         nextT = None
@@ -401,13 +394,17 @@ def home(request):
         # Case1: First task starts after now
         if first[1] > now:
             nextT = first
+            onBreak = nextT[0] != "Break"
         # Case2: First task already started
         else:
             current = first
             nextT = second
-        # Check if user is current in a break or not
-        onBreak = nextT[0] != "Break"
+            # There could be a case where current task is the last thing scheduled in a day.
+            # In such case current will task, next will be a task too and not a break.
+            onBreak = current[0] == "Break"
+
         timer = True
+        print(' next %s onBreak %s' % (nextT[0], onBreak))
         # Determine whether to countdown to end of current task or beginning of next task
         if onBreak:
             # Count down to beginning of next task

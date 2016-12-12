@@ -36,11 +36,11 @@
 		$(".clickable-row").click(function(){
 			window.location.href = $(this).data("href");
 		});
-		//if ({{timer}}){
+		if ({{timer}}){
 			alert("Timer");
 			var fiveMinutes = {{timing}}, display = $('#timer');
 			startTimer(fiveMinutes, display);
-		//}
+		}
 
 	});
 	$(document).keypress(function(e){
@@ -57,7 +57,7 @@
 			minutes = parseInt(timer / 60, 10);
 			seconds = parseInt(timer % 60, 10);
 
-			minutes = minutes < 10 ? "0" + minutes : minutes;
+  			minutes = minutes < 10 ? "0" + minutes : minutes;
 			seconds = seconds < 10 ? "0" + seconds : seconds;
 
 			display.text("Current task ends in " + minutes + ":" + seconds);
@@ -68,7 +68,7 @@
 				}
 				else{
 					{% if current %}
-					var id = {{current.4}};
+					var id = 0; //Needs fix {{current.3}};
 					var url = "/scheduler/progress/" + id + "/";
 					{% else %}
 					var url = "/scheduler/"
