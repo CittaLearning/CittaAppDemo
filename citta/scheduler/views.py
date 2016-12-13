@@ -25,7 +25,7 @@ def scheduled_day_time(day, break_time):
     for task in day:
         if type(task) is datetime.date:
             continue
-        print ('task %s break time %s' % (task[5], break_time))
+
         total_time += task[5] + break_time  # Add the task attn span to the timedelta
     return total_time
 
@@ -82,7 +82,6 @@ def calendar_create(unsortedTasks, request_user):
     '''Create a list of task blocks from a list of unsorted task tuples and a user'''
     # Sort the tasks by priority
     tasks = []
-    dump_tasks(unsortedTasks)
     for newtask in unsortedTasks:
         added = False
         for index, oldtask in enumerate(tasks):
@@ -120,6 +119,13 @@ def calendar_create(unsortedTasks, request_user):
     # List of days with their respective activities
     active_days_list = []
     for task in tasks:
+        days_left = 0
+        days_left_date = get_first_study_day(current_date, study_days)
+
+        while days_left_date < task[3]:
+            days_left_date = jump_next_date(study_days, days_left_date)
+            days_left += 1
+        print(' task %s days_left %d days_left_date %s ' % (task[0], days_left, days_left_date))
         percent_left = 100 - task[6]
         time_left = task[4] * percent_left
         time_left /= 100
@@ -133,13 +139,11 @@ def calendar_create(unsortedTasks, request_user):
             if day_time <= (break_time + datetime.timedelta(minutes=elapsed_time) + task[5]):
                 date_index = jump_next_date(study_days, date_index)
                 elapsed_time = 0
-            else :
-                current_elapsed = elapsed_time
 
         full_days = []
         # while the time_left is greater than the default timedelta, 0
         while time_left > datetime.timedelta():
-            if date_index > task[3]:
+            if len(full_days) == days_left:
                 # TODO: TASK CANNOT BE ALLOTTED
                 break
             # If array for this day has not been created yet, create it
@@ -151,13 +155,14 @@ def calendar_create(unsortedTasks, request_user):
             print('task %s : day_time %s day index %d time left %d date %s' % (task[0], day_time,
                                                                                day_index,
                                                                                time_left.seconds / 60, date_index))
-            if date_index != current_date:
-                current_elapsed = 0
-
             # If day has available time to fit the task
             # FIXME : on the first day check should be elapsed + attention span <= day_time.
-            if scheduled_day_time(active_days_list[day_index], break_time) + break_time\
-                    + datetime.timedelta(minutes=current_elapsed) + task[5] <= day_time:
+            required_day_time = scheduled_day_time(active_days_list[day_index], break_time) + \
+                                break_time + task[5] + \
+                                (datetime.timedelta(
+                                    minutes=elapsed_time) if date_index == current_date else datetime.timedelta())
+
+            if required_day_time <= day_time:
                 active_days_list[day_index].append(task)
                 # Subtract time left by attention span
                 time_left -= task[5]
@@ -165,8 +170,11 @@ def calendar_create(unsortedTasks, request_user):
                 full_days.append(day_index)
                 print("Append date %s:: day index %d" % (date_index, day_index))
                 # Go to the next day and date
-                date_index = jump_next_date(study_days, date_index)
-                day_index += 1
+            date_index = jump_next_date(study_days, date_index)
+            day_index += 1
+            if date_index > task[3]:
+                date_index = get_first_study_day(current_date, study_days)
+                day_index = 0
 
     for day in active_days_list:
         # Assume day is sorted by priority
@@ -200,7 +208,6 @@ def calendar_create(unsortedTasks, request_user):
             task_blocks.append((task[0] + " " + task[1], task_start, task_start + task[5], task[7]))
             task_blocks.append(("Break", task_start + task[5], task_start + task[5] + break_time))
             # Hack to add timedelta to time index
-            print ('task block %s' % task_blocks)
             time_index = (datetime.datetime.combine(timezone.now().date(), time_index) + task[5] + break_time).time()
         # Remove break at the end of the day
         task_blocks.pop()
@@ -361,7 +368,6 @@ def reschedule(request):
 def home(request):
     '''Home view'''
     # Check if user has associated userinfo
-    print('home==============')
     if not list(UserInfo.objects.filter(user__pk=request.user.pk)):
         return redirect('setuser', permanent=True)
     tasks = getTasks(request.user)
@@ -373,7 +379,7 @@ def home(request):
     now = timezone.now()
     # Find the first task that ends after the current time
     index = 0
-    print('number of blocks %d' %len(blocks))
+    print('number of blocks %d' % len(blocks))
     if len(blocks) == 0:
         current = None
         nextT = None
