@@ -380,7 +380,7 @@ def home(request):
 
     print('number of blocks %d' % len(blocks))
     # Case: No tasks or no tasks that end after current time
-    if len(blocks) == 0 || blocks[-1][2] > now:
+    if len(blocks) == 0 or blocks[-1][2] > now:
         current = None
         nextT = None
         onBreak = True
