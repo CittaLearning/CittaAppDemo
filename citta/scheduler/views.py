@@ -377,47 +377,51 @@ def home(request):
     current = None
     nextT = None
     now = timezone.now()
-    # Find the first task that ends after the current time
-    index = 0
+
     print('number of blocks %d' % len(blocks))
-    if len(blocks) == 0:
+    # Case: No tasks or no tasks that end after current time
+    if len(blocks) == 0 || blocks[-1][2] > now:
         current = None
         nextT = None
         onBreak = True
         timer = False
         timing = 0
-    elif len(blocks) == 1:
-        current = None
-        nextT = blocks[0]
-        onBreak = True
-        timer = False
-        timing = 0
     else:
+        # There is at least one task ending after the current time
+        # Find the first such task
+        index = 0
         while blocks[index][2] <= now:
             index += 1
-        first = blocks[index]
-        second = blocks[index + 1]
-        # Case1: First task starts after now
-        if first[1] > now:
-            nextT = first
-            onBreak = nextT[0] != "Break"
-        # Case2: First task already started
-        else:
-            current = first
-            nextT = second
-            # There could be a case where current task is the last thing scheduled in a day.
-            # In such case current will task, next will be a task too and not a break.
-            onBreak = current[0] == "Break"
+        first = blocks[index] # First block ending after now
 
-        timer = True
-        print(' next %s onBreak %s' % (nextT[0], onBreak))
-        # Determine whether to countdown to end of current task or beginning of next task
-        if onBreak:
-            # Count down to beginning of next task
-            timing = (nextT[1] - now).total_seconds()
-        else:
-            # Count down to end of current task
-            timing = (current[2] - now).total_seconds()
+        # Case: Only one task ending after now
+        if index == len(blocks) - 1:
+            # Check if task is current task or future task
+            if first[1] < now:
+                current = first
+                timer = True # Show timer
+                onBreak = (current[0] == "Break") # Check if currently on break, should be false
+                timing = (current[2] - now).total_seconds() # Time until end of current task
+            else:
+                nextT = first
+                timer = False # No current task for timer
+                timing = 0
+                onBreak = True
+
+        else: # At least two tasks ending after current time
+            # Check if task is current task or future task
+            if first[1] < now:
+                current = first
+                nextT = blocks[index + 1] # Get the task after the current task
+                timer = True
+                onBreak = (current[0] == "Break") # Check if currently on break
+                timing = (current[2] - now).total_seconds() # Time until end of current task
+            else:
+                nextT = first
+                timer = False # No current task for timer
+                timing = 0
+                onBreak = True
+
     # Reduce tasks to necessary data
     tasks = [(task[0], task[1], task[2], task[3], task[7], task[6] - 100) for task in tasks]
     context = {'tasks': tasks, 'current': current, 'next': nextT, 'onBreak': onBreak, 'timing': timing, 'timer': timer}
